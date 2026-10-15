@@ -11,7 +11,9 @@ def load_and_process_all_stores(base_dir='.'):
 
   store_folders = glob.glob(os.path.join(base_dir, 'STORE*'))
   if not store_folders:
-    store_folders = glob.glob('data/STORE*')
+    store_folders = glob.glob('STORE*')
+  if not store_folders:
+    store_folders = glob.glob('task4/STORE*')
 
   print(
       f'DEBUG - Scanning path: {os.path.abspath(base_dir)} | Found stores:'
@@ -77,15 +79,12 @@ def load_and_process_all_stores(base_dir='.'):
           books_data = yaml.safe_load(f)
           if isinstance(books_data, list):
             df_b = pd.DataFrame(books_data)
-
             for col in df_b.columns:
               if 'year' in col.lower():
-                df_b[col] = (
-                    pd.to_numeric(df_b[col], errors='coerce')
-                    .fillna(0)
-                    .astype(int)
+                df_b[col] = pd.to_numeric(df_b[col], errors='coerce')
+                df_b[col] = df_b[col].apply(
+                    lambda x: None if pd.isna(x) or x < 1800 else int(x)
                 )
-
             df_b['store'] = store_name
             all_books.append(df_b)
       except Exception as e:
@@ -116,10 +115,3 @@ def load_and_process_all_stores(base_dir='.'):
     ).dt.strftime('%Y-%m-%d')
 
   return combined_orders, combined_users, combined_books
-
-if __name__ == '__main__':
-  orders, users, books = load_and_process_all_stores('.')
-  print(
-      f'Successfully loaded: {len(orders)} orders, {len(users)} users,'
-      f' {len(books)} books.'
-  )
