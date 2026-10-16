@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import yaml
 
+
 def load_and_process_all_stores(base_dir='.'):
   all_orders = []
   all_users = []
