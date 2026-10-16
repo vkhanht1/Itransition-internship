@@ -136,11 +136,6 @@ def compute_analytics(orders_df, users_df, books_df):
         u_df[col] = ''
 
     records = u_df.to_dict('records')
-    ids = [
-        r.get('id', i)
-        for i, r in enumerate(records)
-        if 'id' in r or i < len(records)
-    ]
     ids = [r.get('id', idx) for idx, r in enumerate(records)]
 
     adjacency = {uid: [] for uid in ids}
@@ -150,7 +145,7 @@ def compute_analytics(orders_df, users_df, books_df):
       for j in range(i + 1, len(records)):
         r1, r2 = records[i], records[j]
         matches = sum(1 for f in fields if r1[f] == r2[f])
-        if matches >= 3: 
+        if matches >= 3:
           id1, id2 = ids[i], ids[j]
           adjacency[id1].append(id2)
           adjacency[id2].append(id1)
