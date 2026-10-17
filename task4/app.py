@@ -4,22 +4,21 @@ from process_data import compute_analytics, load_and_process_all_stores
 
 st.set_page_config(page_title='Task 4 - BI Dashboard', layout='wide')
 
-st.title('📊 Business Intelligence Dashboard - Task 4 Analysis')
+st.title('Business Intelligence Dashboard - Task 4 Analysis')
 st.markdown('---')
 
-# Load data and compute analytics (với cache, cực kỳ nhanh)
 orders_df, users_df, books_df = load_and_process_all_stores('.')
 analytics = compute_analytics(orders_df, users_df, books_df)
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    '📈 Revenue & Summary',
-    '📚 Authors & Books Analysis',
-    '💬 AI Chat Assistant',
-    '📁 Stores & Users Data',
+    'Revenue & Summary',
+    'Authors & Books Analysis',
+    'AI Chat Assistant',
+    'Stores & Users Data',
 ])
 
 with tab1:
-  st.subheader('📌 Key Metrics & Required Deliverables')
+  st.subheader('Key Metrics & Required Deliverables')
 
   col_m1, col_m2, col_m3 = st.columns(3)
   col_m1.metric(
@@ -54,7 +53,7 @@ with tab1:
     )
 
     st.markdown('---')
-    st.subheader('📈 Daily Revenue Trend Chart')
+    st.subheader('Daily Revenue Trend Chart')
     if 'date' in orders_df.columns:
       daily_rev_chart = (
           orders_df.groupby('date')['paid_price'].sum().reset_index()
@@ -65,7 +64,7 @@ with tab1:
 
 with tab2:
   st.subheader(
-      '📚 Author Sets & Most Popular Author Analysis (Parts 2 & 3)'
+      'Author Sets & Most Popular Author Analysis (Parts 2 & 3)'
   )
 
   if not books_df.empty and 'store' in books_df.columns:
@@ -104,7 +103,7 @@ with tab2:
 
       unique_sets_count = filtered_books[auth_col].astype(str).nunique()
       st.info(
-          f'💡 Number of unique author sets in {selected_book_store}: **'
+          f'Number of unique author sets in {selected_book_store}: **'
           f'{unique_sets_count}**'
       )
     else:
@@ -113,7 +112,7 @@ with tab2:
     st.info('No books.yaml data found.')
 
 with tab3:
-  st.subheader('💬 Interactive Chat Assistant (Parts 2 & 3 Analysis)')
+  st.subheader('Interactive Chat Assistant (Parts 2 & 3 Analysis)')
   st.markdown(
       'Ask questions about unique users, author sets, best buyers, specific'
       ' authors, or store statistics (e.g., "How many books does STORE1 have?",'
@@ -135,7 +134,6 @@ with tab3:
     p = prompt.lower()
     reply = ''
 
-    # 1. Unique users query
     if 'unique user' in p or 'users' in p or 'customer' in p:
       reply = (
           'There are **'
@@ -143,20 +141,17 @@ with tab3:
           ' system after data reconciliation (matching records where at most 1'
           ' field changed).'
       )
-    # 2. Đưa 'popular author' lên TRƯỚC 'author set' để tránh bị bắt nhầm
     elif 'popular author' in p or 'most popular' in p:
       reply = (
           'The most popular author / author set is **'
           f"{analytics['most_popular_author']}**."
       )
-    # 3. Author sets query
     elif 'author set' in p or 'unique sets' in p or 'sets of authors' in p:
       reply = (
           'There are **'
           f"{analytics['unique_author_sets_count']:,}** unique author sets"
           ' identified across all stores.'
       )
-    # 4. Best buyer query
     elif 'best buyer' in p or 'top customer' in p or 'spending' in p:
       buyer = analytics['best_buyer']
       reply = (
@@ -164,13 +159,11 @@ with tab3:
           f"{buyer.get('spending', 0):,.2f}** with user ID aliases/variants:"
           f" `{buyer.get('aliases', [])}`."
       )
-    # 5. Top 5 revenue query
     elif 'top 5' in p or 'revenue' in p or 'sales' in p:
       top5 = analytics['top_5_days']
       reply = 'Here are the top 5 days by revenue:\n'
       for _, row in top5.iterrows():
         reply += f"- **{row['date']}**: ${row['paid_price']:,.2f}\n"
-    # 6. Store specific stats query
     elif any(s in p for s in ['store1', 'store2', 'store3', 'store4', 'store5']):
       target_store = next(
           s for s in ['store1', 'store2', 'store3', 'store4', 'store5'] if s in p
@@ -190,7 +183,6 @@ with tab3:
           f' **{store_books}**\n- Total orders processed: **{store_orders}**'
       )
     else:
-      # 7. Dynamic Author / Book Name search query
       found_author = False
       if not books_df.empty:
         auth_col = (
@@ -233,7 +225,7 @@ with tab3:
     st.session_state.messages.append({'role': 'assistant', 'content': reply})
 
 with tab4:
-  st.subheader('📁 Explore User Data by Store')
+  st.subheader('Explore User Data by Store')
 
   if not users_df.empty and 'store' in users_df.columns:
     store_list = sorted(users_df['store'].unique())
