@@ -135,7 +135,7 @@ def compute_store_analytics(users_df, orders_df, books_df):
     visited = set()
     components = []
     for uid in ids:
-      if uid not visited:
+      if uid not in visited:
         comp = []
         stack = [uid]
         visited.add(uid)
