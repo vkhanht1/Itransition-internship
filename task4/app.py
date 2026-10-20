@@ -1,43 +1,72 @@
 import pandas as pd
 import streamlit as st
-from process_data import compute_analytics, load_and_process_all_stores
+from process_data import compute_store_analytics, load_all_stores
 
-st.set_page_config(page_title='Task 4 - BI Dashboard', layout='wide')
+st.set_page_config(
+    page_title='Task 4 - BI Dashboard (Per-Store)', layout='wide'
+)
 
-st.title('Business Intelligence Dashboard - Task 4 Analysis')
+st.title('Business Intelligence Dashboard - Task 4 (Isolated Store Analysis)')
+st.markdown(
+    'Each store (`STORE1` to `STORE5`) is processed independently as'
+    ' requested.'
+)
 st.markdown('---')
 
-orders_df, users_df, books_df = load_and_process_all_stores('.')
-analytics = compute_analytics(orders_df, users_df, books_df)
+stores_dict = load_all_stores('.')
+store_names = (
+    sorted(list(stores_dict.keys()))
+    if stores_dict
+    else ['STORE1', 'STORE2', 'STORE3', 'STORE4', 'STORE5']
+)
+
+selected_store = st.sidebar.selectbox(
+    'Select Store for Analysis:', store_names
+)
+
+store_data = stores_dict.get(
+    selected_store, {'users': pd.DataFrame(), 'orders': pd.DataFrame(), 'books': pd.DataFrame()}
+)
+u_df = store_data['users']
+o_df = store_data['orders']
+b_df = store_data['books']
+
+analytics = compute_store_analytics(u_df, o_df, b_df)
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    'Revenue & Summary',
-    'Authors & Books Analysis',
+    f'Summary & Revenue ({selected_store})',
+    f'Authors & Books ({selected_store})',
     'AI Chat Assistant',
-    'Stores & Users Data',
+    f'Users Data ({selected_store})',
 ])
 
 with tab1:
-  st.subheader('Key Metrics & Required Deliverables')
+  st.subheader(
+      f'Key Metrics & Required Deliverables for **{selected_store}**'
+  )
 
   col_m1, col_m2, col_m3 = st.columns(3)
   col_m1.metric(
-      'Number of Unique Users (Reconciled)',
+      f'Unique Users (Reconciled in {selected_store})',
       f"{analytics['unique_users_count']:,}",
   )
   col_m2.metric(
-      'Unique Author Sets', f"{analytics['unique_author_sets_count']:,}"
+      f'Unique Author Sets in {selected_store}',
+      f"{analytics['unique_author_sets_count']:,}",
   )
-  col_m3.metric('Most Popular Author / Set', f"{analytics['most_popular_author']}")
+  col_m3.metric(
+      f'Most Popular Author in {selected_store}',
+      f"{analytics['most_popular_author']}",
+  )
 
   st.write(
-      '**Best Buyer (with aliases array):**'
+      f'**Best Buyer in {selected_store} (with aliases array):**'
       f" `{analytics['best_buyer'].get('aliases', [])}` (Total Spending:"
       f" ${analytics['best_buyer'].get('spending', 0):,.2f})"
   )
 
   st.markdown('---')
-  st.subheader('1. Top 5 Days by Revenue (YYYY-MM-dd)')
+  st.subheader(f'1. Top 5 Days by Revenue in {selected_store}')
   if not analytics['top_5_days'].empty:
     top_5_disp = analytics['top_5_days'].copy()
     top_5_disp.columns = ['Date (YYYY-MM-dd)', 'Total Revenue ($)']
@@ -47,76 +76,60 @@ with tab1:
     st.table(top_5_disp)
 
     col1, col2 = st.columns(2)
-    col1.metric('Total Orders Processed', f'{len(orders_df):,}')
+    col1.metric(f'Total Orders in {selected_store}', f'{len(o_df):,}')
     col2.metric(
-        'Total System Revenue', f"${orders_df['paid_price'].sum():,.2f}"
+        f'Total Revenue in {selected_store}',
+        f"${o_df['paid_price'].sum():,.2f}"
+        if not o_df.empty
+        else '$0.00',
     )
 
     st.markdown('---')
-    st.subheader('Daily Revenue Trend Chart')
-    if 'date' in orders_df.columns:
-      daily_rev_chart = (
-          orders_df.groupby('date')['paid_price'].sum().reset_index()
-      )
+    st.subheader(
+        f'Daily Revenue Trend Chart ({selected_store}) - Cleaned Spikes'
+    )
+    if not o_df.empty and 'date' in o_df.columns:
+      daily_rev_chart = o_df.groupby('date')['paid_price'].sum().reset_index()
       st.line_chart(daily_rev_chart.set_index('date'))
   else:
-    st.warning('No valid order data available.')
+    st.warning(f'No valid order data available for {selected_store}.')
 
 with tab2:
   st.subheader(
-      'Author Sets & Most Popular Author Analysis (Parts 2 & 3)'
+      f'📚 Author Book Counts & Popular Authors in **{selected_store}**'
   )
 
-  if not books_df.empty and 'store' in books_df.columns:
-    store_list_books = sorted(books_df['store'].unique())
-    selected_book_store = st.selectbox(
-        'Select store location for books analysis:',
-        store_list_books,
-        key='book_store_select',
-    )
-
-    filtered_books = books_df[books_df['store'] == selected_book_store]
-    st.write(
-        f'Total book records in **{selected_book_store}**: **'
-        f'{len(filtered_books)}** items.'
-    )
-
+  if not b_df.empty:
     auth_col = (
         'authors'
-        if 'authors' in filtered_books.columns
-        else ('author' if 'author' in filtered_books.columns else None)
+        if 'authors' in b_df.columns
+        else ('author' if 'author' in b_df.columns else None)
     )
-
     if auth_col:
       author_counts = (
-          filtered_books[auth_col]
-          .astype(str)
-          .value_counts()
-          .head(10)
-          .reset_index()
+          b_df[auth_col].astype(str).value_counts().head(15).reset_index()
       )
       author_counts.columns = ['Author / Author Set', 'Book Count']
       st.markdown(
-          f'**Top Popular Authors / Author Sets in {selected_book_store}:**'
+          f'**Top Authors / Author Sets by Book Count in {selected_store}:**'
       )
       st.table(author_counts)
 
-      unique_sets_count = filtered_books[auth_col].astype(str).nunique()
+      unique_sets_count = b_df[auth_col].astype(str).nunique()
       st.info(
-          f'Number of unique author sets in {selected_book_store}: **'
+          f'Number of unique author sets in {selected_store}: **'
           f'{unique_sets_count}**'
       )
     else:
-      st.dataframe(filtered_books.head(10), width='stretch')
+      st.dataframe(b_df.head(10), width='stretch')
   else:
-    st.info('No books.yaml data found.')
+    st.info(f'No books.yaml data found for {selected_store}.')
 
 with tab3:
-  st.subheader('Interactive Chat Assistant (Parts 2 & 3 Analysis)')
+  st.subheader('Interactive Chat Assistant (Per-Store Analysis)')
   st.markdown(
-      'Ask questions about unique users, author sets, best buyers, specific'
-      ' authors, or store statistics (e.g., "How many books does STORE1 have?",'
-      ' "Find popular author").'
+      'Ask questions specifying a store (e.g., "How many unique users are there'
+      ' in the store2?", "How many books does STORE1 have?").'
   )
 
   if 'messages' not in st.session_state:
@@ -126,7 +139,7 @@ with tab3:
     with st.chat_message(message['role']):
       st.markdown(message['content'])
 
-  if prompt := st.chat_input('Ask a question about the dataset or authors...'):
+  if prompt := st.chat_input('Ask a question about the store dataset...'):
     st.session_state.messages.append({'role': 'user', 'content': prompt})
     with st.chat_message('user'):
       st.markdown(prompt)
@@ -134,69 +147,70 @@ with tab3:
     p = prompt.lower()
     reply = ''
 
+    target_store = selected_store
+    for s_name in store_names:
+      s_num = s_name.replace('STORE', '')
+      if (
+          f'store {s_num}' in p
+          or f'store{s_num}' in p
+          or f'store {s_lower := s_num}' in p
+      ):
+        target_store = s_name
+        break
+      if f'store {s_num}' in p:
+        target_store = s_name
+        break
+
+    t_data = stores_dict.get(
+        target_store, {'users': pd.DataFrame(), 'orders': pd.DataFrame(), 'books': pd.DataFrame()}
+    )
+    t_u = t_data['users']
+    t_o = t_data['orders']
+    t_b = t_data['books']
+    t_ana = compute_store_analytics(t_u, t_o, t_b)
+
     if 'unique user' in p or 'users' in p or 'customer' in p:
       reply = (
-          'There are **'
-          f"{analytics['unique_users_count']:,}** real unique users in the"
-          ' system after data reconciliation (matching records where at most 1'
-          ' field changed).'
+          f'In **{target_store}**, there are **'
+          f"{t_ana['unique_users_count']:,}** reconciled unique users."
       )
     elif 'popular author' in p or 'most popular' in p:
       reply = (
-          'The most popular author / author set is **'
-          f"{analytics['most_popular_author']}**."
+          f'In **{target_store}**, the most popular author / author set is **'
+          f"{t_ana['most_popular_author']}**."
       )
     elif 'author set' in p or 'unique sets' in p or 'sets of authors' in p:
       reply = (
-          'There are **'
-          f"{analytics['unique_author_sets_count']:,}** unique author sets"
-          ' identified across all stores.'
+          f'In **{target_store}**, there are **'
+          f"{t_ana['unique_author_sets_count']:,}** unique author sets."
       )
     elif 'best buyer' in p or 'top customer' in p or 'spending' in p:
-      buyer = analytics['best_buyer']
+      buyer = t_ana['best_buyer']
       reply = (
-          'The best buyer has total spending of **$'
+          f'In **{target_store}**, the best buyer has total spending of **$'
           f"{buyer.get('spending', 0):,.2f}** with user ID aliases/variants:"
           f" `{buyer.get('aliases', [])}`."
       )
     elif 'top 5' in p or 'revenue' in p or 'sales' in p:
-      top5 = analytics['top_5_days']
-      reply = 'Here are the top 5 days by revenue:\n'
+      top5 = t_ana['top_5_days']
+      reply = f'Here are the top 5 days by revenue in **{target_store}**:\n'
       for _, row in top5.iterrows():
         reply += f"- **{row['date']}**: ${row['paid_price']:,.2f}\n"
-    elif any(s in p for s in ['store1', 'store2', 'store3', 'store4', 'store5']):
-      target_store = next(
-          s for s in ['store1', 'store2', 'store3', 'store4', 'store5'] if s in p
-      ).upper()
-      store_books = (
-          len(books_df[books_df['store'] == target_store])
-          if not books_df.empty
-          else 0
-      )
-      store_orders = (
-          len(orders_df[orders_df['store'] == target_store])
-          if not orders_df.empty
-          else 0
-      )
-      reply = (
-          f'Statistics for **{target_store}**: \n- Total books in catalog:'
-          f' **{store_books}**\n- Total orders processed: **{store_orders}**'
-      )
     else:
       found_author = False
-      if not books_df.empty:
+      if not t_b.empty:
         auth_col = (
             'authors'
-            if 'authors' in books_df.columns
-            else ('author' if 'author' in books_df.columns else None)
+            if 'authors' in t_b.columns
+            else ('author' if 'author' in t_b.columns else None)
         )
         if auth_col:
-          for auth in books_df[auth_col].astype(str).str.lower().unique():
+          for auth in t_b[auth_col].astype(str).str.lower().unique():
             auth_clean = str(auth)
             keywords = [w for w in auth_clean.split() if len(w) > 3]
             if any(kw in p for kw in keywords):
-              match_books = books_df[
-                  books_df[auth_col].astype(str).str.lower() == auth_clean
+              match_books = t_b[
+                  t_b[auth_col].astype(str).str.lower() == auth_clean
               ]
               titles = (
                   match_books['title'].tolist()
@@ -204,8 +218,8 @@ with tab3:
                   else []
               )
               reply += (
-                  f'Author **{auth_clean.title()}** has written **'
-                  f'{len(match_books)}** different books:\n'
+                  f'In **{target_store}**, author **{auth_clean.title()}** has'
+                  f' written **{len(match_books)}** books:\n'
               )
               for t in titles[:10]:
                 reply += f'- {t}\n'
@@ -214,10 +228,9 @@ with tab3:
 
       if not found_author:
         reply = (
-            f'AI Assistant analyzed your query: "{prompt}". You can ask about'
-            ' unique users, unique author sets, best buyer ID aliases, top 5'
-            ' revenue days, specific store statistics (e.g., "Tell me about'
-            ' STORE1"), or search for any author!'
+            f'AI Assistant for **{target_store}**: analyzed query "{prompt}".'
+            ' You can ask about unique users in this specific store, unique'
+            ' author sets, best buyers, or author book counts!'
         )
 
     with st.chat_message('assistant'):
@@ -225,21 +238,12 @@ with tab3:
     st.session_state.messages.append({'role': 'assistant', 'content': reply})
 
 with tab4:
-  st.subheader('Explore User Data by Store')
-
-  if not users_df.empty and 'store' in users_df.columns:
-    store_list = sorted(users_df['store'].unique())
-    selected_store = st.selectbox(
-        'Select store location to inspect:', store_list, key='user_store_select'
-    )
-
-    filtered_users = users_df[users_df['store'] == selected_store]
-    len_users = len(filtered_users)
-
+  st.subheader(f'Explore User Data in **{selected_store}**')
+  if not u_df.empty:
     st.write(
-        f'Showing records for **{selected_store}** (Total users in this store:'
-        f' {len_users}):'
+        f'Showing records for **{selected_store}** (Total users:'
+        f' {len(u_df)}):'
     )
-    st.dataframe(filtered_users, width='stretch')
+    st.dataframe(u_df, width='stretch')
   else:
-    st.info('No user data found.')
+    st.info(f'No user data found for {selected_store}.')
