@@ -86,7 +86,7 @@ with tab1:
 
     st.markdown('---')
     st.subheader(
-        f'Daily Revenue Trend Chart ({selected_store}) - Cleaned Spikes'
+        f'📈 Daily Revenue Trend Chart ({selected_store}) - Cleaned Spikes'
     )
     if not o_df.empty and 'date' in o_df.columns:
       daily_rev_chart = o_df.groupby('date')['paid_price'].sum().reset_index()
@@ -96,7 +96,7 @@ with tab1:
 
 with tab2:
   st.subheader(
-      f'📚 Author Book Counts & Popular Authors in **{selected_store}**'
+      f'Author Book Counts & Popular Authors in **{selected_store}**'
   )
 
   if not b_df.empty:
@@ -150,14 +150,7 @@ with tab3:
     target_store = selected_store
     for s_name in store_names:
       s_num = s_name.replace('STORE', '')
-      if (
-          f'store {s_num}' in p
-          or f'store{s_num}' in p
-          or f'store {s_lower := s_num}' in p
-      ):
-        target_store = s_name
-        break
-      if f'store {s_num}' in p:
+      if f'store {s_num}' in p or f'store{s_num}' in p:
         target_store = s_name
         break
 
